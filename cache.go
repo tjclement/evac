@@ -5,26 +5,38 @@ import (
 	"sync"
 )
 
+type dnsRecordMap map[uint16]dns.RR
+
+type dnsCacheMap map[string]dnsRecordMap
+
 type Cache struct {
-	internal_cache map[string]*dns.RR
+	internal_cache dnsCacheMap
 	lock           sync.RWMutex
 }
 
 func NewCache() *Cache {
-	return &Cache{internal_cache: make(map[string]*dns.RR),
+	return &Cache{internal_cache: make(dnsCacheMap),
 		lock: sync.RWMutex{}}
 }
 
-func (cache *Cache) GetRecord(domain string) (*dns.RR, bool) {
+func (cache *Cache) GetRecord(domain string, dnstype uint16) (*dns.RR, bool) {
 	locker := cache.lock.RLocker()
 	locker.Lock()
-	record, ok := cache.internal_cache[domain]
+	var record dns.RR = nil
+	var found bool = false
+	if recordmap, ok := cache.internal_cache[domain]; ok {
+		record, found = recordmap[dnstype]
+	}
 	locker.Unlock()
-	return record, ok
+	return &record, found
 }
 
-func (cache *Cache) UpdateRecord(domain string, record *dns.RR) {
+func (cache *Cache) UpdateRecord(domain string, record dns.RR) {
 	cache.lock.Lock()
-	cache.internal_cache[domain] = record
+	header := record.Header()
+	if _, ok := cache.internal_cache[domain]; !ok {
+		cache.internal_cache[domain] = make(dnsRecordMap)
+	}
+	cache.internal_cache[domain][header.Rrtype] = record
 	cache.lock.Unlock()
 }
