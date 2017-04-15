@@ -1,9 +1,9 @@
-package evac
+package caching
 
 import (
 	"github.com/miekg/dns"
-	"sync"
 	"time"
+	"sync"
 )
 
 type dnsCacheEntry struct {
@@ -29,13 +29,13 @@ func NewCache(limit uint32) *Cache {
 func (cache *Cache) GetRecord(domain string, dnstype uint16) (dns.RR, bool) {
 	locker := cache.lock.RLocker()
 	locker.Lock()
-	var entry dnsCacheEntry = nil
+	var entry dnsCacheEntry
 	var found bool = false
 	if record_map, ok := cache.internal_cache[domain]; ok {
 		entry, found = record_map[dnstype]
 	}
 	locker.Unlock()
-	return &entry.record, found
+	return entry.record, found
 }
 
 func (cache *Cache) UpdateRecord(domain string, record dns.RR) {

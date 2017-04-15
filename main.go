@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/miekg/dns"
+	"evac/caching"
 )
 
 /* TODO: 1 - Read incoming DNS request */
@@ -12,6 +13,7 @@ import (
 /* TODO: 5 - Serve DNS response to client */
 
 func main() {
+	cache := caching.NewCache(200)
 	m := new(dns.Msg)
 	m.SetQuestion("google.com.", dns.TypeA)
 
@@ -19,6 +21,7 @@ func main() {
 	if t, ok := in.Answer[0].(*dns.A); ok {
 		fmt.Printf("Message response: %s\n", t.A)
 	}
-
-	fmt.Printf("hello, world\n")
+	record, ok := cache.GetRecord("google.com", dns.TypeA)
+	fmt.Println("Record found: ", ok)
+	fmt.Println("Record: ", record)
 }
