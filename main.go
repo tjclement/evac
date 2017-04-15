@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"evac/server"
-	"evac/caching"
+	"evac/filterlist"
 )
 
 /* TODO: 1 - Read incoming DNS request */
@@ -13,7 +13,7 @@ import (
 /* TODO: 5 - Serve DNS response to client */
 
 func main() {
-	caching.NewCache(200)
+	filterlist.NewCache(200)
 	listener := server.DnsServer{make(chan server.Request)}
 	go func () {
 		err := listener.Start(":53")
