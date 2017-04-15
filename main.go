@@ -1,4 +1,4 @@
-package evac
+package main
 
 import (
 	"fmt"
