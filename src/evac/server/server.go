@@ -13,8 +13,8 @@ type DnsServer struct {
 	IncomingRequests chan Request
 }
 
-func NewServer() (*DnsServer) {
-	return &DnsServer{make(chan Request)}
+func NewServer(queue_size int) (*DnsServer) {
+	return &DnsServer{make(chan Request, queue_size)}
 }
 
 func (server DnsServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
