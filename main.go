@@ -14,7 +14,7 @@ import (
 
 func main() {
 	filterlist.NewCache(200)
-	listener := server.DnsServer{make(chan server.Request)}
+	listener := server.NewServer(50)
 	go func () {
 		err := listener.Start(":53")
 		if err != nil {
