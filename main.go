@@ -14,8 +14,14 @@ import (
 
 func main() {
 	caching.NewCache(200)
-	listener := server.DnsServer{}
-	listener.Start(":53")
+	listener := server.DnsServer{make(chan server.Request)}
+	go func () {
+		err := listener.Start(":53")
+		if err != nil {
+			fmt.Print(err)
+		}
+	}()
+
 	<-listener.IncomingRequests
 	fmt.Print("Done")
 }

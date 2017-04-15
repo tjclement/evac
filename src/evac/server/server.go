@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"github.com/miekg/dns"
 )
 
@@ -14,8 +13,11 @@ type DnsServer struct {
 	IncomingRequests chan Request
 }
 
+func NewServer() (*DnsServer) {
+	return &DnsServer{make(chan Request)}
+}
+
 func (server DnsServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
-	fmt.Print(r.Answer)
 	server.IncomingRequests <- Request{w, r}
 }
 
