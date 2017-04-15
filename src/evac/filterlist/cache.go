@@ -1,4 +1,4 @@
-package caching
+package filterlist
 
 import (
 	"github.com/miekg/dns"
