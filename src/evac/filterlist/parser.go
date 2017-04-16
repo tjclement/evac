@@ -23,7 +23,6 @@ func (parser *ABPFilterParser) Parse(reader io.Reader) (whitelist []Filter, blac
 
 			if err {
 				log.Fatalf("Could not create ABPFilter on rule %s. Error %t", rule, err)
-				break
 			}
 
 			if isException {
