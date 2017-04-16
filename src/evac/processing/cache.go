@@ -1,4 +1,4 @@
-package filterlist
+package processing
 
 import (
 	"github.com/miekg/dns"
