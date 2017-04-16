@@ -18,8 +18,7 @@ type partialFilterList struct {
 }
 
 func makePartialList(filters []Filter) (partialFilterList) {
-	filterlist := &partialFilterList{rules: make([]Filter, len(filters))}
-	copy(filterlist.rules, filters)
+	filterlist := &partialFilterList{rules: filters}
 	return *filterlist
 }
 
