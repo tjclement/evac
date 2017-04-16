@@ -17,8 +17,8 @@ func (parser *ABPFilterParser) Parse(reader io.Reader) (whitelist []Filter, blac
 	scanner := bufio.NewScanner(reader)
 
 	for scanner.Scan() {
-		rule, isException := parser.isExceptionRule(scanner.Text())
-		if rule, domainRule := parser.isSimpleDomainRule(rule); domainRule {
+		rule, isException := parser.checkAndCleanIfExceptionRule(scanner.Text())
+		if rule, domainRule := parser.checkAndCleanIfSimpleDomainRule(rule); domainRule {
 			filter, err := NewABPFilter(rule)
 
 			if err {
@@ -43,14 +43,14 @@ const (
 	domainSuffix = "^"
 )
 
-func (parser *ABPFilterParser) isSimpleDomainRule(rule string) (string, bool) {
+func (parser *ABPFilterParser) checkAndCleanIfSimpleDomainRule(rule string) (string, bool) {
 	if cleanedRule, matchesPrefix := parser.checkRulePrefixAndRemove(rule, domainPrefix); matchesPrefix {
 		return parser.checkRuleSuffixAndRemove(cleanedRule, domainSuffix)
 	}
 	return rule, false
 }
 
-func (parser *ABPFilterParser) isExceptionRule(rule string) (string, bool) {
+func (parser *ABPFilterParser) checkAndCleanIfExceptionRule(rule string) (string, bool) {
 
 	return parser.checkRulePrefixAndRemove(rule, exceptionPrefix)
 }
