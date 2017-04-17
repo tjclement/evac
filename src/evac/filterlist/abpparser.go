@@ -19,10 +19,13 @@ func (parser *ABPFilterParser) Parse(reader io.Reader) (whitelist []Filter, blac
 	for scanner.Scan() {
 		rule, isException := parser.checkAndCleanIfExceptionRule(scanner.Text())
 		if rule, domainRule := parser.checkAndCleanIfSimpleDomainRule(rule); domainRule {
-			filter, err := NewRegexFilter(rule)
+			var filter *RegexFilter
+
+			filter, err = NewRegexFilter(rule)
 
 			if err {
-				log.Fatalf("Could not create RegexFilter on rule %s. Error %t", rule, err)
+				log.Panicf("Could not create RegexFilter on rule %s. Error %t", rule, err)
+				break
 			}
 
 			if isException {
