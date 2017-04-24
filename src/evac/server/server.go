@@ -5,8 +5,8 @@ import (
 )
 
 type Request struct {
-	dns.ResponseWriter
-	*dns.Msg
+	ResponseWriter dns.ResponseWriter
+	RequestMessage *dns.Msg
 }
 
 type DnsServer struct {
