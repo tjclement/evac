@@ -29,18 +29,21 @@ func NewCache(limit uint32) *Cache {
 func (cache *Cache) GetRecord(domain string, dnstype uint16) (dns.RR, bool) {
 	locker := cache.lock.RLocker()
 	locker.Lock()
+	defer locker.Unlock()
+
 	var entry dnsCacheEntry
 	var found bool = false
 	if record_map, ok := cache.internal_cache[domain]; ok {
 		entry, found = record_map[dnstype]
 	}
-	locker.Unlock()
 	return entry.record, found
 }
 
 func (cache *Cache) UpdateRecord(domain string, record dns.RR) {
 	header := record.Header()
 	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
 	if _, ok := cache.internal_cache[domain]; !ok {
 		cache.internal_cache[domain] = make(dnsRecordMap)
 	}
@@ -53,11 +56,12 @@ func (cache *Cache) UpdateRecord(domain string, record dns.RR) {
 	}
 	cache.internal_cache[domain][header.Rrtype] = dnsCacheEntry{ record: record,
 	time_added: time.Now()}
-	cache.lock.Unlock()
 }
 
 func (cache *Cache) TTLExpirationCleanup() {
 	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
 	for domain, records := range cache.internal_cache {
 		for record_type, record := range records {
 			duration_since := time.Since(record.time_added)
@@ -68,7 +72,6 @@ func (cache *Cache) TTLExpirationCleanup() {
 			}
 		}
 	}
-	cache.lock.Unlock()
 }
 
 func (cache *Cache) deleteRecordNotLocked(domain string, record_type uint16) {

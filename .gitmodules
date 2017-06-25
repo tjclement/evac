@@ -1,3 +1,0 @@
-[submodule "src/github.com/miekg/dns"]
-	path = src/github.com/miekg/dns
-	url = git://github.com/miekg/dns
