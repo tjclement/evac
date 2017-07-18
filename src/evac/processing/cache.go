@@ -10,6 +10,7 @@ import (
 type dnsCacheEntry struct {
 	records    []dns.RR
 	time_added time.Time
+	is_blocked bool
 }
 
 type dnsRecordMap map[uint16]dnsCacheEntry
@@ -27,7 +28,7 @@ func NewCache(limit uint32) *Cache {
 		lock: sync.RWMutex{}, limit: limit, count: 0}
 }
 
-func (cache *Cache) GetRecord(domain string, dnstype uint16) ([]dns.RR, bool) {
+func (cache *Cache) GetRecord(domain string, dnstype uint16) ([]dns.RR, bool, bool) {
 	locker := cache.lock.RLocker()
 	locker.Lock()
 	defer locker.Unlock()
@@ -37,12 +38,24 @@ func (cache *Cache) GetRecord(domain string, dnstype uint16) ([]dns.RR, bool) {
 	if record_map, ok := cache.internal_cache[domain]; ok {
 		entry, found = record_map[dnstype]
 	}
-	return entry.records, found
+	return entry.records, found, entry.is_blocked
+}
+
+func (cache *Cache) UpdateBlockedRecord(domain string, record_type uint16) {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
+	cache.prepareDnsRecordMap(domain, record_type)
+	cache.internal_cache[domain][record_type] = dnsCacheEntry{
+		records: nil,
+		time_added: time.Now(),
+		is_blocked: true,
+	}
 }
 
 func (cache *Cache) UpdateRecord(domain string, records []dns.RR) {
 	if len(records) < 1 {
-		fmt.Sprintf("Tried to set empty records for domain '%s'", domain)
+		fmt.Printf("Tried to set empty records for domain '%s'", domain)
 		return
 	}
 	/* We assume the TTL is the same for all records, in case of multiple records */
@@ -50,19 +63,11 @@ func (cache *Cache) UpdateRecord(domain string, records []dns.RR) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 
-	if _, ok := cache.internal_cache[domain]; !ok {
-		cache.internal_cache[domain] = make(dnsRecordMap)
-	}
-	_, ok := cache.internal_cache[domain][header.Rrtype]
-	if !ok {
-		/* Check if we have to do a random replacement */
-		if cache.count >= cache.limit {
-			cache.performRandomCacheReplacement()
-		}
-	}
+	cache.prepareDnsRecordMap(domain, header.Rrtype)
 	cache.internal_cache[domain][header.Rrtype] = dnsCacheEntry{
 		records: records,
 		time_added: time.Now(),
+		is_blocked: false,
 	}
 }
 
@@ -78,6 +83,19 @@ func (cache *Cache) TTLExpirationCleanup() {
 			if duration_since.Seconds() > float64(dns_record_header.Ttl) {
 				cache.deleteRecordNotLocked(domain, record_type)
 			}
+		}
+	}
+}
+
+func (cache *Cache) prepareDnsRecordMap(domain string, record_type uint16) {
+	if _, ok := cache.internal_cache[domain]; !ok {
+		cache.internal_cache[domain] = make(dnsRecordMap)
+	}
+	_, ok := cache.internal_cache[domain][record_type]
+	if !ok {
+		/* Check if we have to do a random replacement */
+		if cache.count >= cache.limit {
+			cache.performRandomCacheReplacement()
 		}
 	}
 }

@@ -39,15 +39,20 @@ func (server DnsServer) ServeDNS(writer dns.ResponseWriter, request *dns.Msg) {
 		question := request.Question[0]
 
 		/* Check if the question is in our local cache, and if so, immediately return it. */
-		records, exists := server.cache.GetRecord(question.Name, question.Qtype)
+		records, exists, is_blocked := server.cache.GetRecord(question.Name, question.Qtype)
 		if exists {
-			response.Answer = records
+			if is_blocked {
+				response.Rcode = dns.RcodeNameError
+			} else {
+				response.Answer = records
+			}
 			return writer.WriteMsg(response)
 		}
 
 		/* Check if question is in blacklist. */
 		if server.filter.Matches(question.Name) {
 			response.Rcode = dns.RcodeNameError
+			server.cache.UpdateBlockedRecord(question.Name, question.Qtype)
 			return writer.WriteMsg(response)
 		}
 
