@@ -12,6 +12,7 @@ func main() {
 	port := flag.Int("port", 53, "Port to run on")
 	cache_size := flag.Uint("cache", 200, "The amount of DNS responses to cache locally to increase performance")
 	recursion_address := flag.String("recursion_address", "8.8.8.8:53", "Server address in the format of 'ip:port' to query non-cached requests from")
+	worker_amount := flag.Uint("worker_amount", 5, "The amount of workers that concurrently accept DNS requests")
 	flag.Parse()
 
 	cache := processing.NewCache(uint32(*cache_size))
@@ -30,6 +31,6 @@ func main() {
 
 	fmt.Printf("Starting server on port %d\r\n", *port)
 	filter := filterlist.NewABPFilterList(blacklist, whitelist)
-	listener := server.NewServer(50, cache, filter, recursion_address)
+	listener := server.NewServer(cache, filter, recursion_address, uint16(*worker_amount))
 	listener.Start(fmt.Sprintf(":%d", *port))
 }
