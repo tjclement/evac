@@ -4,10 +4,11 @@ import (
 	"github.com/miekg/dns"
 	"time"
 	"sync"
+	"fmt"
 )
 
 type dnsCacheEntry struct {
-	record dns.RR
+	records    []dns.RR
 	time_added time.Time
 }
 
@@ -26,7 +27,7 @@ func NewCache(limit uint32) *Cache {
 		lock: sync.RWMutex{}, limit: limit, count: 0}
 }
 
-func (cache *Cache) GetRecord(domain string, dnstype uint16) (dns.RR, bool) {
+func (cache *Cache) GetRecord(domain string, dnstype uint16) ([]dns.RR, bool) {
 	locker := cache.lock.RLocker()
 	locker.Lock()
 	defer locker.Unlock()
@@ -36,11 +37,16 @@ func (cache *Cache) GetRecord(domain string, dnstype uint16) (dns.RR, bool) {
 	if record_map, ok := cache.internal_cache[domain]; ok {
 		entry, found = record_map[dnstype]
 	}
-	return entry.record, found
+	return entry.records, found
 }
 
-func (cache *Cache) UpdateRecord(domain string, record dns.RR) {
-	header := record.Header()
+func (cache *Cache) UpdateRecord(domain string, records []dns.RR) {
+	if len(records) < 1 {
+		fmt.Sprintf("Tried to set empty records for domain '%s'", domain)
+		return
+	}
+	/* We assume the TTL is the same for all records, in case of multiple records */
+	header := records[0].Header()
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 
@@ -49,13 +55,15 @@ func (cache *Cache) UpdateRecord(domain string, record dns.RR) {
 	}
 	_, ok := cache.internal_cache[domain][header.Rrtype]
 	if !ok {
-		// Check if we have to do a random replacement
+		/* Check if we have to do a random replacement */
 		if cache.count >= cache.limit {
 			cache.performRandomCacheReplacement()
 		}
 	}
-	cache.internal_cache[domain][header.Rrtype] = dnsCacheEntry{ record: record,
-	time_added: time.Now()}
+	cache.internal_cache[domain][header.Rrtype] = dnsCacheEntry{
+		records: records,
+		time_added: time.Now(),
+	}
 }
 
 func (cache *Cache) TTLExpirationCleanup() {
@@ -65,7 +73,7 @@ func (cache *Cache) TTLExpirationCleanup() {
 	for domain, records := range cache.internal_cache {
 		for record_type, record := range records {
 			duration_since := time.Since(record.time_added)
-			dns_record_header := record.record.Header()
+			dns_record_header := record.records[0].Header()
 
 			if duration_since.Seconds() > float64(dns_record_header.Ttl) {
 				cache.deleteRecordNotLocked(domain, record_type)

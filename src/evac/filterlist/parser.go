@@ -13,7 +13,7 @@ func NewABPFilterParser() (*ABPFilterParser) {
 	return &ABPFilterParser{}
 }
 
-func (parser *ABPFilterParser) Parse(reader io.Reader) (whitelist []Filter, blacklist []Filter, err error) {
+func (parser *ABPFilterParser) Parse(reader io.Reader) (blacklist []Filter, whitelist []Filter, err error) {
 	scanner := bufio.NewScanner(reader)
 
 	for scanner.Scan() {
@@ -21,19 +21,19 @@ func (parser *ABPFilterParser) Parse(reader io.Reader) (whitelist []Filter, blac
 		if rule, domainRule := parser.checkAndCleanIfSimpleDomainRule(rule); domainRule {
 			filter, err := NewRegexFilter(rule)
 
-			if err {
-				log.Fatalf("Could not create RegexFilter on rule %s. Error %t", rule, err)
+			if err != nil {
+				log.Fatalf("Could not create RegexFilter on rule %s. Error %t", rule, err.Error())
 			}
 
 			if isException {
-				whitelist = append(whitelist, *filter)
+				whitelist = append(whitelist, filter)
 			} else {
-				blacklist = append(blacklist, *filter)
+				blacklist = append(blacklist, filter)
 			}
 		}
 	}
 
-	return whitelist, blacklist, err
+	return blacklist, whitelist, err
 }
 
 const (

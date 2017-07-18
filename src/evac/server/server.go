@@ -3,72 +3,79 @@ package server
 import (
 	"github.com/miekg/dns"
 	"evac/processing"
+	"evac/filterlist"
+	"time"
 )
 
 type Request struct {
 	Response dns.ResponseWriter
-	Message *dns.Msg
+	Message  *dns.Msg
 }
 
 type DnsServer struct {
-	IncomingRequests chan Request
-	cache *processing.Cache
+	IncomingRequests  chan Request
+	cache             *processing.Cache
+	filter            filterlist.Filter
+	recursion_address *string
 }
 
-func NewServer(queue_size int, cache *processing.Cache) (*DnsServer) {
-	return &DnsServer{make(chan Request, queue_size), cache}
+func NewServer(queue_size int, cache *processing.Cache, filter filterlist.Filter, recursion_address *string) (*DnsServer) {
+	return &DnsServer{make(chan Request, queue_size), cache, filter, recursion_address}
 }
 
-func (server DnsServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
-	go func(request Request) {
+func (server DnsServer) ServeDNS(writer dns.ResponseWriter, request *dns.Msg) {
+	go(func(writer dns.ResponseWriter, request *dns.Msg) error {
 		response := new(dns.Msg)
-		response.SetReply(request.Message)
-		cache_misses := make([]dns.Question, 0)
-		recursion_questions := make([]dns.Question, 0)
+		response.SetReply(request)
 
-		/* Check request's questions in local cache */
-		for _, question := range request.Message.Question {
-			record, exists := server.cache.GetRecord(question.Name, question.Qtype)
-			if !exists {
-				cache_misses = append(cache_misses, question)
-			} else {
-				response.Answer = append(response.Answer, record)
-			}
+		if len(request.Question) != 1 {
+			response.Rcode = dns.RcodeFormatError
+			writer.WriteMsg(response)
+			return writer.WriteMsg(response)
 		}
 
-		/* Check unresolved questions in blacklist */
-		for _, question := range cache_misses {
-			/* TODO: 3 - Check blacklist for request domain */
-			if question.Name == "doubleclick.net." {
-				answ, _ := dns.NewRR(question.Name + " 60 IN A 0.0.0.0")
-				response.Answer = append(response.Answer, answ)
-				server.cache.UpdateRecord(question.Name, answ)
-			} else {
-				/* TODO: remove following debug statement when actual blacklist is done */
-				recursion_questions = append(recursion_questions, question)
-			}
+		/* DNS RFC supports multiple questions, but in practise no DNS servers do. E.g. response status code NXDOMAIN
+		 * does not make sense if there is more than one question, so in reality there is always only one. */
+		question := request.Question[0]
+
+		/* Check if the question is in our local cache, and if so, immediately return it. */
+		records, exists := server.cache.GetRecord(question.Name, question.Qtype)
+		if exists {
+			response.Answer = records
+			return writer.WriteMsg(response)
 		}
 
-		/* Forward any unresolved questions to another server */
-		if len(recursion_questions) > 0 {
-			c := new(dns.Client)
-			m := new(dns.Msg)
-			m.Id = dns.Id()
-			m.RecursionDesired = true
-			m.Question = recursion_questions
-
-			recursion_response, _, _ := c.Exchange(m, "8.8.8.8:53")
-			for index, answer := range recursion_response.Answer {
-				response.Answer = append(response.Answer, answer)
-
-				if len(recursion_questions) > index {
-					server.cache.UpdateRecord(recursion_questions[index].Name, answer)
-				}
-			}
+		/* Check if question is in blacklist. */
+		if server.filter.Matches(question.Name) {
+			response.Rcode = dns.RcodeNameError
+			return writer.WriteMsg(response)
 		}
 
-		request.Response.WriteMsg(response)
-	}(Request{w, r})
+		/* Forward unresolved question to another server */
+		recursion_response, _, err := server.Recurse(question)
+
+		if err != nil && &recursion_response == nil {
+			response.Rcode = dns.RcodeServerFailure
+			return writer.WriteMsg(response)
+		}
+
+		if len(recursion_response.Answer) >= 1 {
+			server.cache.UpdateRecord(question.Name, recursion_response.Answer)
+			response.Answer = recursion_response.Answer
+		}
+
+		return writer.WriteMsg(response)
+	})(writer, request)
+}
+
+/* Forwards a DNS request to an external DNS server, and returns its result. */
+func (server DnsServer) Recurse(question dns.Question) (*dns.Msg, time.Duration, error) {
+	c := new(dns.Client)
+	m := new(dns.Msg)
+	m.Id = dns.Id()
+	m.RecursionDesired = true
+	m.Question = append(m.Question, question)
+	return c.Exchange(m, *server.recursion_address)
 }
 
 func (server DnsServer) Start(address string) error {
