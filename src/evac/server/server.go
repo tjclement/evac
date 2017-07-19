@@ -91,7 +91,7 @@ func (server DnsServer) processRequest(writer dns.ResponseWriter, request *dns.M
 	/* Forward unresolved question to another server */
 	recursion_response, _, err := server.recurse(question)
 
-	if err != nil && &recursion_response == nil {
+	if err != nil || recursion_response == nil {
 		response.Rcode = dns.RcodeServerFailure
 		return writer.WriteMsg(response)
 	}
