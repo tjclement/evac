@@ -5,6 +5,8 @@ import (
 	"evac/processing"
 	"evac/filterlist"
 	"time"
+	"strings"
+	"fmt"
 )
 
 type Request struct {
@@ -13,15 +15,20 @@ type Request struct {
 }
 
 type DnsServer struct {
-	IncomingRequests  chan Request
-	cache             *processing.Cache
-	filter            filterlist.Filter
-	recursion_address *string
-	worker_amount	  uint16
+	IncomingRequests chan Request
+	ShouldPrint		 *bool
+	IPFilter		 *string
+	cache            *processing.Cache
+	filter           filterlist.Filter
+	recursionAddress *string
+	workerAmount     uint16
+
 }
 
 func NewServer(cache *processing.Cache, filter filterlist.Filter, recursion_address *string, worker_amount uint16) (*DnsServer) {
-	return &DnsServer{make(chan Request, worker_amount * 10), cache, filter, recursion_address, worker_amount}
+	shouldPrint := false
+	ipFilter := ""
+	return &DnsServer{make(chan Request, worker_amount * 10), &shouldPrint, &ipFilter,cache, filter, recursion_address, worker_amount}
 }
 
 func (server DnsServer) ServeDNS(writer dns.ResponseWriter, request *dns.Msg) {
@@ -31,7 +38,7 @@ func (server DnsServer) ServeDNS(writer dns.ResponseWriter, request *dns.Msg) {
 
 func (server DnsServer) Start(address string) error {
 	/* Start configured amount of workers that accept requests from the IncomingRequests channel */
-	for i := uint16(0); i < server.worker_amount; i++ {
+	for i := uint16(0); i < server.workerAmount; i++ {
 		go server.acceptRequests()
 	}
 
@@ -46,7 +53,7 @@ func (server DnsServer) recurse(question dns.Question) (*dns.Msg, time.Duration,
 	m.Id = dns.Id()
 	m.RecursionDesired = true
 	m.Question = append(m.Question, question)
-	return c.Exchange(m, *server.recursion_address)
+	return c.Exchange(m, *server.recursionAddress)
 }
 
 func (server DnsServer) acceptRequests() {
@@ -63,7 +70,7 @@ func (server DnsServer) processRequest(writer dns.ResponseWriter, request *dns.M
 	if len(request.Question) != 1 {
 		response.Rcode = dns.RcodeFormatError
 		writer.WriteMsg(response)
-		return writer.WriteMsg(response)
+		return server.writeResponse(writer, response, "No question")
 	}
 
 	/* DNS RFC supports multiple questions, but in practise no DNS servers do. E.g. response status code NXDOMAIN
@@ -78,14 +85,14 @@ func (server DnsServer) processRequest(writer dns.ResponseWriter, request *dns.M
 		} else {
 			response.Answer = records
 		}
-		return writer.WriteMsg(response)
+		return server.writeResponse(writer, response, "Cached")
 	}
 
 	/* Check if question is in blacklist. */
 	if server.filter.Matches(question.Name) {
 		response.Rcode = dns.RcodeNameError
 		server.cache.UpdateBlockedRecord(question.Name, question.Qtype)
-		return writer.WriteMsg(response)
+		return server.writeResponse(writer, response, "Blacklisted")
 	}
 
 	/* Forward unresolved question to another server */
@@ -93,12 +100,30 @@ func (server DnsServer) processRequest(writer dns.ResponseWriter, request *dns.M
 
 	if err != nil || recursion_response == nil {
 		response.Rcode = dns.RcodeServerFailure
-		return writer.WriteMsg(response)
+		return server.writeResponse(writer, response, "Forward failure")
 	}
 
 	if len(recursion_response.Answer) >= 1 {
 		server.cache.UpdateRecord(question.Name, recursion_response.Answer)
 		response.Answer = recursion_response.Answer
+	}
+
+	return server.writeResponse(writer, response, "Forwarded")
+}
+
+func (server *DnsServer) writeResponse(writer dns.ResponseWriter, response *dns.Msg, logPreface string) error {
+	fromAddress := writer.RemoteAddr().String()
+	fromIP := strings.Split(fromAddress, ":")[0]
+
+	if *server.ShouldPrint && (len(*server.IPFilter) == 0 || *server.IPFilter == fromIP) {
+		fmt.Println("\r\n", logPreface)
+		for _, question := range response.Question {
+			fmt.Printf("Question: %s - %d\r\n", question.Name, question.Qtype)
+		}
+		for _, question := range response.Answer {
+			fmt.Printf("Answer: %s\r\n", question.String())
+		}
+		fmt.Println("--------------")
 	}
 
 	return writer.WriteMsg(response)
