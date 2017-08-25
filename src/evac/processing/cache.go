@@ -53,18 +53,16 @@ func (cache *Cache) UpdateBlockedRecord(domain string, record_type uint16) {
 	}
 }
 
-func (cache *Cache) UpdateRecord(domain string, records []dns.RR) {
+func (cache *Cache) UpdateRecord(domain string, queryType uint16, records []dns.RR) {
 	if len(records) < 1 {
 		fmt.Printf("Tried to set empty records for domain '%s'", domain)
 		return
 	}
-	/* We assume the TTL is the same for all records, in case of multiple records */
-	header := records[0].Header()
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 
-	cache.prepareDnsRecordMap(domain, header.Rrtype)
-	cache.internal_cache[domain][header.Rrtype] = dnsCacheEntry{
+	cache.prepareDnsRecordMap(domain, queryType)
+	cache.internal_cache[domain][queryType] = dnsCacheEntry{
 		records: records,
 		time_added: time.Now(),
 		is_blocked: false,

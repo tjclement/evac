@@ -104,7 +104,7 @@ func (server DnsServer) processRequest(writer dns.ResponseWriter, request *dns.M
 	}
 
 	if len(recursion_response.Answer) >= 1 {
-		server.cache.UpdateRecord(question.Name, recursion_response.Answer)
+		server.cache.UpdateRecord(question.Name, question.Qtype, recursion_response.Answer)
 		response.Answer = recursion_response.Answer
 	}
 
