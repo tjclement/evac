@@ -16,13 +16,14 @@ func main() {
 	cache_size := flag.Uint("cache", 200, "The amount of DNS responses to cache locally to increase performance")
 	recursion_address := flag.String("recursion_address", "8.8.8.8:53", "Server address in the format of 'ip:port' to query non-cached requests from")
 	worker_amount := flag.Uint("worker_amount", 5, "The amount of workers that concurrently accept DNS requests")
+	abp_filter := flag.String("abp_filter", "./abp_filter.txt", "The AdBlockPlus formatted list of domains to process for blacklisting")
 	flag.Parse()
 
 	cache := processing.NewCache(uint32(*cache_size))
 	parser := filterlist.NewABPFilterParser()
-	abp_file, err := os.Open("./abp_filter.txt")
+	abp_file, err := os.Open(*abp_filter)
 	if err != nil {
-		fmt.Printf("Error opening AdBlockPlus filter list 'abp_filter.txt', exiting")
+		fmt.Printf("Error opening AdBlockPlus filter list '%s', exiting", *abp_filter)
 		return
 	}
 
