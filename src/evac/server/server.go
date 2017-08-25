@@ -115,10 +115,12 @@ func (server *DnsServer) writeResponse(writer dns.ResponseWriter, response *dns.
 	fromAddress := writer.RemoteAddr().String()
 	fromIP := strings.Split(fromAddress, ":")[0]
 
+	response.RecursionAvailable = true
+
 	if *server.ShouldPrint && (len(*server.IPFilter) == 0 || *server.IPFilter == fromIP) {
 		fmt.Println("\r\n", logPreface)
 		for _, question := range response.Question {
-			fmt.Printf("Question: %s - %d\r\n", question.Name, question.Qtype)
+			fmt.Printf("Question: %s - Qtype %d Qclass %d\r\n", question.Name, question.Qtype, question.Qclass)
 		}
 		for _, question := range response.Answer {
 			fmt.Printf("Answer: %s\r\n", question.String())
