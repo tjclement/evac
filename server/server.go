@@ -1,12 +1,12 @@
 package server
 
 import (
-	"github.com/miekg/dns"
-	"github.com/tjclement/evac/processing"
-	"github.com/tjclement/evac/filterlist"
-	"time"
-	"strings"
 	"fmt"
+	"github.com/miekg/dns"
+	"github.com/tjclement/evac/filterlist"
+	"github.com/tjclement/evac/processing"
+	"strings"
+	"time"
 )
 
 type Request struct {
@@ -16,19 +16,18 @@ type Request struct {
 
 type DnsServer struct {
 	IncomingRequests chan Request
-	ShouldPrint		 *bool
-	IPFilter		 *string
+	ShouldPrint      *bool
+	IPFilter         *string
 	cache            *processing.Cache
 	filter           filterlist.Filter
 	recursionAddress *string
 	workerAmount     uint16
-
 }
 
 func NewServer(cache *processing.Cache, filter filterlist.Filter, recursion_address *string, worker_amount uint16) (*DnsServer) {
 	shouldPrint := false
 	ipFilter := ""
-	return &DnsServer{make(chan Request, worker_amount * 10), &shouldPrint, &ipFilter,cache, filter, recursion_address, worker_amount}
+	return &DnsServer{make(chan Request, worker_amount*10), &shouldPrint, &ipFilter, cache, filter, recursion_address, worker_amount}
 }
 
 func (server DnsServer) ServeDNS(writer dns.ResponseWriter, request *dns.Msg) {
@@ -43,7 +42,14 @@ func (server DnsServer) Start(address string) error {
 	}
 
 	/* Listen for DNS requests */
-	return dns.ListenAndServe(address, "udp", server)
+	err := dns.ListenAndServe(address, "udp", server)
+
+	if err != nil {
+		fmt.Printf("Error setting up listening socket: %s\r\n", err.Error())
+		return err
+	}
+
+	return nil
 }
 
 /* Forwards a DNS request to an external DNS server, and returns its result. */
@@ -58,7 +64,7 @@ func (server DnsServer) recurse(question dns.Question) (*dns.Msg, time.Duration,
 
 func (server DnsServer) acceptRequests() {
 	for true {
-		request := <- server.IncomingRequests
+		request := <-server.IncomingRequests
 		server.processRequest(request.Response, request.Message)
 	}
 }

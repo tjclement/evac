@@ -1,16 +1,17 @@
 package main
 
 import (
-	"fmt"
+	"bufio"
 	"flag"
-	"github.com/tjclement/evac/server"
+	"fmt"
 	"github.com/tjclement/evac/filterlist"
 	"github.com/tjclement/evac/processing"
+	"github.com/tjclement/evac/server"
 	"os"
 	"os/signal"
 	"strings"
-	"bufio"
 )
+
 func main() {
 	port := flag.Int("port", 53, "Port to run on")
 	cache_size := flag.Uint("cache", 200, "The amount of DNS responses to cache locally to increase performance")
@@ -38,11 +39,11 @@ func main() {
 	listener := server.NewServer(cache, filter, recursion_address, uint16(*worker_amount))
 	go listener.Start(fmt.Sprintf(":%d", *port))
 
-	go func(){
+	go func() {
 		var input string
 		scanner := bufio.NewScanner(os.Stdin)
 		commandFuncs := map[string]func(*server.DnsServer, []string){
-			"help": printHelp,
+			"help":  printHelp,
 			"snoop": toggleSnoop,
 		}
 
@@ -62,10 +63,10 @@ func main() {
 			fmt.Print("> ")
 		}
 	}()
-	
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-	<- c
+	<-c
 }
 
 func printHelp(dnsServer *server.DnsServer, params []string) {
