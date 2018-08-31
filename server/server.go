@@ -2,8 +2,8 @@ package server
 
 import (
 	"github.com/miekg/dns"
-	"evac/processing"
-	"evac/filterlist"
+	"github.com/tjclement/evac/processing"
+	"github.com/tjclement/evac/filterlist"
 	"time"
 	"strings"
 	"fmt"

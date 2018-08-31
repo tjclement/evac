@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	"flag"
-	"evac/server"
-	"evac/filterlist"
-	"evac/processing"
+	"github.com/tjclement/evac/server"
+	"github.com/tjclement/evac/filterlist"
+	"github.com/tjclement/evac/processing"
 	"os"
 	"os/signal"
 	"strings"
