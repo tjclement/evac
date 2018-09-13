@@ -3,8 +3,8 @@ package server
 import (
 	"fmt"
 	"github.com/miekg/dns"
-	"github.com/tjclement/evac/filterlist"
-	"github.com/tjclement/evac/processing"
+	"github.com/vlabakje/evac/filterlist"
+	"github.com/vlabakje/evac/processing"
 	"strings"
 	"time"
 )
@@ -24,7 +24,7 @@ type DnsServer struct {
 	workerAmount     uint16
 }
 
-func NewServer(cache *processing.Cache, filter filterlist.Filter, recursion_address *string, worker_amount uint16) (*DnsServer) {
+func NewServer(cache *processing.Cache, filter filterlist.Filter, recursion_address *string, worker_amount uint16) *DnsServer {
 	shouldPrint := false
 	ipFilter := ""
 	return &DnsServer{make(chan Request, worker_amount*10), &shouldPrint, &ipFilter, cache, filter, recursion_address, worker_amount}
@@ -135,4 +135,9 @@ func (server *DnsServer) writeResponse(writer dns.ResponseWriter, response *dns.
 	}
 
 	return writer.WriteMsg(response)
+}
+
+func (server *DnsServer) ReloadFilter(newfilter filterlist.Filter) {
+	server.filter = newfilter
+	server.cache.Flush()
 }
