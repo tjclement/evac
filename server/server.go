@@ -30,12 +30,12 @@ func NewServer(cache *processing.Cache, filter filterlist.Filter, recursion_addr
 	return &DnsServer{make(chan Request, worker_amount*10), &shouldPrint, &ipFilter, cache, filter, recursion_address, worker_amount}
 }
 
-func (server DnsServer) ServeDNS(writer dns.ResponseWriter, request *dns.Msg) {
+func (server *DnsServer) ServeDNS(writer dns.ResponseWriter, request *dns.Msg) {
 	/* Request is handled by a worker with processRequest() */
 	server.IncomingRequests <- Request{writer, request}
 }
 
-func (server DnsServer) Start(address string) error {
+func (server *DnsServer) Start(address string) error {
 	/* Start configured amount of workers that accept requests from the IncomingRequests channel */
 	for i := uint16(0); i < server.workerAmount; i++ {
 		go server.acceptRequests()
@@ -53,7 +53,7 @@ func (server DnsServer) Start(address string) error {
 }
 
 /* Forwards a DNS request to an external DNS server, and returns its result. */
-func (server DnsServer) recurse(question dns.Question) (*dns.Msg, time.Duration, error) {
+func (server *DnsServer) recurse(question dns.Question) (*dns.Msg, time.Duration, error) {
 	c := new(dns.Client)
 	m := new(dns.Msg)
 	m.Id = dns.Id()
@@ -62,14 +62,14 @@ func (server DnsServer) recurse(question dns.Question) (*dns.Msg, time.Duration,
 	return c.Exchange(m, *server.recursionAddress)
 }
 
-func (server DnsServer) acceptRequests() {
+func (server *DnsServer) acceptRequests() {
 	for true {
 		request := <-server.IncomingRequests
 		server.processRequest(request.Response, request.Message)
 	}
 }
 
-func (server DnsServer) processRequest(writer dns.ResponseWriter, request *dns.Msg) error {
+func (server *DnsServer) processRequest(writer dns.ResponseWriter, request *dns.Msg) error {
 	response := new(dns.Msg)
 	response.SetReply(request)
 
