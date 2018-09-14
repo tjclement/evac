@@ -85,6 +85,17 @@ func (cache *Cache) TTLExpirationCleanup() {
 	}
 }
 
+func (cache *Cache) Flush() {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
+	for domain, records := range cache.internal_cache {
+		for record_type, _ := range records {
+			cache.deleteRecordNotLocked(domain, record_type)
+		}
+	}
+}
+
 func (cache *Cache) prepareDnsRecordMap(domain string, record_type uint16) {
 	if _, ok := cache.internal_cache[domain]; !ok {
 		cache.internal_cache[domain] = make(dnsRecordMap)
