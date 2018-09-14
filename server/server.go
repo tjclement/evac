@@ -3,8 +3,8 @@ package server
 import (
 	"fmt"
 	"github.com/miekg/dns"
-	"github.com/vlabakje/evac/filterlist"
-	"github.com/vlabakje/evac/processing"
+	"github.com/tjclement/evac/filterlist"
+	"github.com/tjclement/evac/processing"
 	"strings"
 	"time"
 )
