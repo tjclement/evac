@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -23,10 +24,12 @@ func main() {
 	flag.Parse()
 
 	cache := processing.NewCache(uint32(*cache_size))
+	initialFilterDownloadFailed := false
 	filter, err := loadFilter(abp_filter)
 	if err != nil {
-		fmt.Printf("%s, unable to start\n", err)
-		return
+		fmt.Printf("%s, unable to download filter, starting without one and initiating period retries\n", err)
+		filter = filterlist.NewABPFilterList(nil, nil)
+		initialFilterDownloadFailed = true
 	}
 
 	fmt.Printf("Starting server on port %d\r\n", *port)
@@ -56,6 +59,31 @@ func main() {
 			}
 
 			fmt.Print("> ")
+		}
+	}()
+
+	ticker := time.NewTicker(24 * time.Hour)
+	if initialFilterDownloadFailed {
+		ticker.Stop()
+		ticker = time.NewTicker(2 * time.Minute)
+	}
+	go func() {
+		for {
+			select {
+			case <- ticker.C:
+				fmt.Printf("\nperiodic reload of filter:\n")
+				filter, err := loadFilter(abp_filter)
+				if err != nil {
+					fmt.Printf("%s, unable to reload\n", err)
+				} else {
+					listener.ReloadFilter(filter)
+					if initialFilterDownloadFailed {
+						initialFilterDownloadFailed = false
+						ticker.Stop()
+						ticker = time.NewTicker(24 * time.Hour)
+					}
+				}
+			}
 		}
 	}()
 
